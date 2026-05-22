@@ -1,0 +1,138 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fafafa;
+  --fg: #1a1a1a;
+  --muted: #666;
+  --card: #ffffff;
+  --border: #e5e5e5;
+  --accent: #0a84ff;
+  --code-bg: #f3f3f3;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --fg: #f2f2f2;
+    --muted: #9a9a9e;
+    --card: #2c2c2e;
+    --border: #3a3a3c;
+    --accent: #0a84ff;
+    --code-bg: #1a1a1c;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  font: 14px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+html {
+  height: 100%;
+  /* Chrome HTML windows don't always get a scrollbar by default the way
+     content pages do — make it explicit so tall content scrolls. */
+  overflow-y: auto;
+}
+body {
+  min-height: 100%;
+}
+
+header {
+  padding: 16px 24px 8px;
+  border-bottom: 1px solid var(--border);
+}
+header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+header .sub {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+#error-bar {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: #5a1a1a;
+  color: #ffd6d6;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 24px 24px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.card h2 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.card p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+button {
+  background: var(--accent);
+  color: white;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.08); }
+button:active { filter: brightness(0.92); }
+
+code, pre, .output {
+  font-family: "Cascadia Code", Consolas, "SF Mono", monospace;
+  font-size: 12px;
+}
+code { background: var(--code-bg); padding: 1px 4px; border-radius: 3px; }
+pre.output, ul.output, div.output {
+  background: var(--code-bg);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 8px 0 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+ul.output { list-style: none; padding-left: 10px; }
+ul.output li { padding: 1px 0; }
+
+#info { border-collapse: collapse; width: 100%; }
+#info td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+#info td:first-child { color: var(--muted); width: 180px; }
+
+footer {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+footer button {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+}

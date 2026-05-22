@@ -1,0 +1,29 @@
+# Build output
+dist/
+
+# Per-developer Firefox profile (created on first `npm start`)
+profile/
+
+# Cached binaries downloaded by the build scripts
+tools/
+
+# Debug / scratch artifacts
+*.log
+boot.log
+boot-early.log
+ff-stderr.log
+icon-debug.log
+runtime-icon.png
+
+# Node
+node_modules/
+.npm/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Locked test dir from initial probing
+_test_app/

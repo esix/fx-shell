@@ -1,0 +1,28 @@
+{
+  "name": "fxshell",
+  "version": "0.1.0",
+  "description": "XULRunner-style desktop app shell built on modern Firefox",
+  "license": "MIT",
+  "author": "esix",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esix/fx-shell.git"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node scripts/start.js",
+    "build": "node scripts/build.js"
+  },
+  "fxshell": {
+    "firefoxVersion": "99.0.1",
+    "appName": "myapp",
+    "displayName": "My App",
+    "companyName": "My Company",
+    "iconPath": "app/chrome/skin/icon.ico",
+    "appDir": "app",
+    "preferSystemFirefox": true
+  }
+}

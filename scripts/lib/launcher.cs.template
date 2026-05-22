@@ -1,0 +1,74 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
+
+static class FxShellLauncher
+{
+    const string RUNTIME_EXE  = "__RUNTIME_EXE__";
+    const string PROFILE_SLOT = "__PROFILE_SLOT__";
+    const string DISPLAY_NAME = "__DISPLAY_NAME__";
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
+
+    static void Fatal(string msg) { MessageBoxW(IntPtr.Zero, msg, DISPLAY_NAME, 0x10); }
+
+    static string Q(string s)
+    {
+        if (s.IndexOf(' ') < 0 && s.IndexOf('"') < 0) return s;
+        return "\"" + s.Replace("\"", "\\\"") + "\"";
+    }
+
+    [STAThread]
+    static int Main(string[] args)
+    {
+        string exeDir     = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        string runtimeExe = Path.Combine(exeDir, "runtime", RUNTIME_EXE);
+        string appIni     = Path.Combine(exeDir, "app", "application.ini");
+
+        if (!File.Exists(runtimeExe)) { Fatal("Missing runtime:\n" + runtimeExe); return 1; }
+        if (!File.Exists(appIni))     { Fatal("Missing app manifest:\n" + appIni); return 1; }
+
+        string profileDir;
+        try {
+            string probe = Path.Combine(exeDir, ".write-probe");
+            File.WriteAllText(probe, "");
+            File.Delete(probe);
+            profileDir = Path.Combine(exeDir, "profile");
+        } catch {
+            string lad = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            profileDir = Path.Combine(lad, PROFILE_SLOT, "profile");
+        }
+
+        var forward = new List<string>();
+        foreach (var a in args) {
+            if (string.Equals(a, "--reset-profile", StringComparison.OrdinalIgnoreCase)) {
+                try { if (Directory.Exists(profileDir)) Directory.Delete(profileDir, true); }
+                catch (Exception e) { Fatal("Could not reset profile:\n" + e.Message); return 1; }
+            } else {
+                forward.Add(a);
+            }
+        }
+        Directory.CreateDirectory(profileDir);
+
+        var parts = new List<string>();
+        parts.Add("-app"); parts.Add(Q(appIni));
+        parts.Add("--no-remote");
+        parts.Add("--profile"); parts.Add(Q(profileDir));
+        foreach (var a in forward) parts.Add(Q(a));
+
+        var psi = new ProcessStartInfo {
+            FileName         = runtimeExe,
+            Arguments        = string.Join(" ", parts),
+            UseShellExecute  = false,
+            WorkingDirectory = exeDir
+        };
+
+        try { Process.Start(psi); }
+        catch (Exception e) { Fatal("Launch failed:\n" + e.Message); return 1; }
+        return 0;
+    }
+}

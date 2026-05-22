@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>My App — built with fxshell</title>
+  <meta charset="utf-8"/>
+  <link rel="icon" href="chrome://myapp/skin/icon.ico"/>
+  <link rel="stylesheet" href="chrome://myapp/skin/main.css"/>
+</head>
+<body>
+  <header>
+    <h1>My App</h1>
+    <div class="sub">Privileged HTML running on Firefox <span id="ff-version">…</span> via fxshell</div>
+    <pre id="error-bar" hidden="hidden"></pre>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Runtime info</h2>
+      <table id="info"></table>
+    </section>
+
+    <section class="card">
+      <h2>File I/O via <code>IOUtils</code></h2>
+      <p>
+        Click to read this app's own <code>application.ini</code> using the
+        modern chrome-privileged I/O API. No Node, no fs polyfill — this is
+        what replaced the old <code>nsIFile</code> dance. Works identically
+        in dev and in a packaged build.
+      </p>
+      <button id="read-btn">Read application.ini</button>
+      <pre id="read-out" class="output"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Enumerate the project directory</h2>
+      <p>
+        Walks the project root using <code>IOUtils.getChildren</code> and
+        lists every file and folder. Same API you'd use to enumerate
+        anything on disk from chrome-privileged code.
+      </p>
+      <button id="enum-btn">Scan project root</button>
+      <ul id="enum-out" class="output"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Open the OS file picker</h2>
+      <p>
+        Demonstrates <code>nsIFilePicker</code> — a real OS dialog, not a
+        webby <code>&lt;input type="file"&gt;</code>.
+      </p>
+      <button id="pick-btn">Pick a file…</button>
+      <div id="pick-out" class="output"></div>
+    </section>
+
+    <section class="card">
+      <h2>Load an ES module via <code>ChromeUtils.importESModule</code></h2>
+      <p>
+        Demonstrates the modern XPCOM-component replacement.
+        Loads <code>chrome://myapp/content/greeter.sys.mjs</code> and calls it.
+      </p>
+      <button id="mod-btn">Run greeter module</button>
+      <pre id="mod-out" class="output"></pre>
+    </section>
+
+    <footer>
+      <button id="quit-btn">Quit app</button>
+    </footer>
+  </main>
+
+  <script src="chrome://myapp/content/main.js"></script>
+</body>
+</html>
