@@ -8,18 +8,24 @@ const https = require('https');
 const { spawn } = require('child_process');
 const { ensureDir, exists } = require('./fs-utils');
 
-const SUPPORTED = new Set(['win32']);  // darwin/linux: stubs for later
+const SUPPORTED = new Set(['win32', 'darwin']);  // linux: stub for later
 
 function platformId() {
   if (process.platform === 'win32') {
     return process.arch === 'arm64' ? 'win64-aarch64' : 'win64';
   }
-  throw new Error(`fxshell: unsupported platform "${process.platform}" (Windows only for now)`);
+  if (process.platform === 'darwin') {
+    return 'mac';  // Mozilla ships one universal (x86_64 + arm64) macOS build
+  }
+  throw new Error(`fxshell: unsupported platform "${process.platform}" (Windows + macOS only for now)`);
 }
 
 function userCacheDir() {
   if (process.platform === 'win32') {
     return path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'fxshell-cache');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Caches', 'fxshell');
   }
   return path.join(os.homedir(), '.cache', 'fxshell');
 }
@@ -27,32 +33,69 @@ function userCacheDir() {
 function runtimesRoot()                 { return path.join(userCacheDir(), 'runtimes'); }
 function installersRoot()               { return path.join(userCacheDir(), 'installers'); }
 function runtimeDirFor(version)         { return path.join(runtimesRoot(), `firefox-${version}-${platformId()}`); }
-function runtimeExeName()               { return process.platform === 'win32' ? 'firefox.exe' : 'firefox'; }
-function runtimeExePathFor(version)     { return path.join(runtimeDirFor(version), runtimeExeName()); }
 function readyMarkerFor(version)        { return path.join(runtimeDirFor(version), '.fxshell-ready'); }
 
-/** Detect an existing Firefox install. Returns absolute path to firefox.exe or null. */
+/** Downloaded-installer artifact path (.exe on Windows, .dmg on macOS). */
+function installerExt()                 { return process.platform === 'darwin' ? 'dmg' : 'exe'; }
+function installerPathFor(version)      { return path.join(installersRoot(), `firefox-${version}-${platformId()}.${installerExt()}`); }
+
+/** Path to the launchable firefox binary inside a cached runtime. */
+function runtimeExePathFor(version) {
+  const dir = runtimeDirFor(version);
+  if (process.platform === 'darwin') {
+    return path.join(dir, 'Firefox.app', 'Contents', 'MacOS', 'firefox');
+  }
+  return path.join(dir, 'firefox.exe');
+}
+
+/**
+ * Given a firefox binary path, return the "runtime root" — the directory or
+ * bundle that gets copied wholesale into a build.
+ *   Windows : the folder holding firefox.exe + its dlls
+ *   macOS   : the Firefox.app bundle (three levels up from the binary)
+ */
+function runtimeRootForExe(exe) {
+  if (process.platform === 'darwin') {
+    return path.resolve(exe, '..', '..', '..');  // …/Firefox.app/Contents/MacOS/firefox → …/Firefox.app
+  }
+  return path.dirname(exe);
+}
+
+/** Detect an existing Firefox install. Returns absolute path to the binary or null. */
 function detectInstalledFirefox() {
-  if (process.platform !== 'win32') return null;
-  const candidates = [
-    'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
-    'C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe',
-    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Mozilla Firefox', 'firefox.exe'),
-  ].filter(Boolean);
-  for (const c of candidates) {
-    if (exists(c)) return c;
+  if (process.platform === 'win32') {
+    const candidates = [
+      'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
+      'C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe',
+      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Mozilla Firefox', 'firefox.exe'),
+    ].filter(Boolean);
+    for (const c of candidates) if (exists(c)) return c;
+    return null;
+  }
+  if (process.platform === 'darwin') {
+    const candidates = [
+      '/Applications/Firefox.app/Contents/MacOS/firefox',
+      path.join(os.homedir(), 'Applications', 'Firefox.app', 'Contents', 'MacOS', 'firefox'),
+    ];
+    for (const c of candidates) if (exists(c)) return c;
+    return null;
   }
   return null;
 }
 
 /** Mozilla archive URL for a given version + platform. */
 function mozillaInstallerUrl(version) {
-  if (process.platform !== 'win32') {
-    throw new Error('fxshell: only Windows installer URLs are wired up so far');
+  const base = `https://archive.mozilla.org/pub/firefox/releases/${version}`;
+  if (process.platform === 'win32') {
+    const plat = process.arch === 'arm64' ? 'win64-aarch64' : 'win64';
+    // spaces are URL-encoded.
+    return `${base}/${plat}/en-US/Firefox%20Setup%20${version}.exe`;
   }
-  const plat = process.arch === 'arm64' ? 'win64-aarch64' : 'win64';
-  // archive.mozilla.org hosts every released build; spaces are URL-encoded.
-  return `https://archive.mozilla.org/pub/firefox/releases/${version}/${plat}/en-US/Firefox%20Setup%20${version}.exe`;
+  if (process.platform === 'darwin') {
+    // One universal .dmg under /mac/ — works on both Intel and Apple Silicon.
+    return `${base}/mac/en-US/Firefox%20${version}.dmg`;
+  }
+  throw new Error('fxshell: only Windows + macOS installer URLs are wired up so far');
 }
 
 /** Stream-download a URL to a file, following redirects. */
@@ -91,7 +134,7 @@ function downloadFile(url, dest, { onProgress } = {}) {
   });
 }
 
-/** Find 7z.exe (with NSIS-format support). Returns path or null. */
+/** Find 7z.exe (with NSIS-format support). Returns path or null. Windows-only. */
 function find7z() {
   if (process.platform !== 'win32') return null;
   const candidates = [
@@ -115,10 +158,11 @@ function spawnAsync(cmd, args, opts = {}) {
 }
 
 /**
- * Extract a Firefox NSIS installer to a target dir using 7z.exe.
- * The installer puts the runtime under "core/" — we flatten that out.
+ * Extract a Firefox NSIS installer (Windows) to a target dir using 7z.exe.
+ * The installer puts the runtime under "core/" — we flatten that out so the
+ * target dir directly contains firefox.exe.
  */
-async function extractInstaller(installerPath, targetDir) {
+async function extractNsis(installerPath, targetDir) {
   const sevenZip = find7z();
   if (!sevenZip) {
     throw new Error(
@@ -134,7 +178,6 @@ async function extractInstaller(installerPath, targetDir) {
   await ensureDir(stagingDir);
   await spawnAsync(sevenZip, ['x', installerPath, `-o${stagingDir}`, '-y', '-bso0', '-bsp1']);
 
-  // NSIS installer lays files under a "core" subfolder.
   const coreDir = path.join(stagingDir, 'core');
   if (!exists(coreDir)) {
     throw new Error(`Expected ${coreDir} after extraction — installer layout changed?`);
@@ -144,8 +187,35 @@ async function extractInstaller(installerPath, targetDir) {
 }
 
 /**
- * Ensure a Firefox runtime is cached for `version`. Returns the path to firefox.exe.
- * Skips re-download if the ready marker is already there.
+ * Extract a Firefox .dmg (macOS) to a target dir. Mounts the image read-only
+ * without opening Finder, copies Firefox.app out with `ditto` (preserves the
+ * bundle's symlinks + extended attributes), then detaches. The target dir ends
+ * up containing Firefox.app.
+ */
+async function extractDmg(dmgPath, targetDir) {
+  const mountPoint = await fsp.mkdtemp(path.join(os.tmpdir(), 'fxshell-dmg-'));
+  await spawnAsync('hdiutil', ['attach', dmgPath, '-nobrowse', '-readonly', '-mountpoint', mountPoint]);
+  try {
+    const srcApp = path.join(mountPoint, 'Firefox.app');
+    if (!exists(srcApp)) {
+      throw new Error(`Expected ${srcApp} on the mounted dmg — installer layout changed?`);
+    }
+    await ensureDir(targetDir);
+    await spawnAsync('ditto', [srcApp, path.join(targetDir, 'Firefox.app')]);
+  } finally {
+    await spawnAsync('hdiutil', ['detach', mountPoint, '-quiet']).catch(() => {});
+  }
+}
+
+function extractInstaller(installerPath, targetDir) {
+  return process.platform === 'darwin'
+    ? extractDmg(installerPath, targetDir)
+    : extractNsis(installerPath, targetDir);
+}
+
+/**
+ * Ensure a Firefox runtime is cached for `version`. Returns the path to the
+ * firefox binary. Skips re-download if the ready marker is already there.
  */
 async function ensureCachedRuntime(version, { force = false } = {}) {
   if (!SUPPORTED.has(process.platform)) {
@@ -158,7 +228,7 @@ async function ensureCachedRuntime(version, { force = false } = {}) {
   const targetDir = runtimeDirFor(version);
   await ensureDir(installersRoot());
 
-  const installerPath = path.join(installersRoot(), `firefox-${version}-${platformId()}.exe`);
+  const installerPath = installerPathFor(version);
   if (!exists(installerPath) || force) {
     const url = mozillaInstallerUrl(version);
     process.stdout.write(`  downloading ${url}\n`);
@@ -187,23 +257,33 @@ async function ensureCachedRuntime(version, { force = false } = {}) {
 }
 
 /**
- * Resolve a firefox.exe to launch.
+ * Resolve a firefox binary to launch.
  *
  *   - mode "dev"   : prefer installed Firefox (if config.preferSystemFirefox),
  *                    otherwise cached pinned version (download if needed).
  *   - mode "build" : always use the cached pinned version (download if needed).
  *
- * Returns { firefoxExe, source: "system"|"cache", runtimeDir }.
+ * Returns { firefoxExe, source: "system"|"cache", runtimeDir, runtimeRoot }.
  */
 async function resolveRuntime({ config, mode = 'dev' }) {
   if (mode === 'dev' && config.preferSystemFirefox) {
     const installed = detectInstalledFirefox();
     if (installed) {
-      return { firefoxExe: installed, source: 'system', runtimeDir: path.dirname(installed) };
+      return {
+        firefoxExe: installed,
+        source: 'system',
+        runtimeDir: path.dirname(installed),
+        runtimeRoot: runtimeRootForExe(installed),
+      };
     }
   }
   const exe = await ensureCachedRuntime(config.firefoxVersion);
-  return { firefoxExe: exe, source: 'cache', runtimeDir: path.dirname(exe) };
+  return {
+    firefoxExe: exe,
+    source: 'cache',
+    runtimeDir: path.dirname(exe),
+    runtimeRoot: runtimeRootForExe(exe),
+  };
 }
 
 module.exports = {
@@ -212,6 +292,7 @@ module.exports = {
   detectInstalledFirefox,
   runtimeDirFor,
   runtimeExePathFor,
+  runtimeRootForExe,
   userCacheDir,
   find7z,
 };

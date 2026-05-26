@@ -36,7 +36,10 @@ function loadConfig(projectRoot) {
     companyName,
     appDir,
     iconPath,
-    preferSystemFirefox: cfg.preferSystemFirefox !== false,
+    // Default false: the XUL shell (native menu) + privileged iframe depend on
+    // FF-99-era -app behaviour that newer Firefox regresses, so `npm start`
+    // should use the pinned runtime too unless you opt into your system copy.
+    preferSystemFirefox: cfg.preferSystemFirefox === true,
   };
 }
 

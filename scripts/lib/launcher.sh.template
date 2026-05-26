@@ -1,0 +1,55 @@
+#!/bin/sh
+# fxshell launcher — the .app bundle's CFBundleExecutable.
+#
+# Runs invisibly when the user double-clicks the app: it picks a profile
+# directory, handles --reset-profile, then exec's the bundled Firefox runtime
+# with the XULRunner-style -app arguments. No Terminal window appears.
+#
+# __PROFILE_SLOT__ / __DISPLAY_NAME__ are substituted at build time.
+
+PROFILE_SLOT="__PROFILE_SLOT__"
+DISPLAY_NAME="__DISPLAY_NAME__"
+
+DIR="$(cd "$(dirname "$0")" && pwd)"        # …/<App>.app/Contents/MacOS
+CONTENTS="$(dirname "$DIR")"                 # …/<App>.app/Contents
+APP_BUNDLE="$(dirname "$CONTENTS")"          # …/<App>.app
+PARENT="$(dirname "$APP_BUNDLE")"            # folder containing <App>.app
+
+RUNTIME="$DIR/firefox"
+APP_INI="$CONTENTS/Resources/app/application.ini"
+
+fatal() {
+  /usr/bin/osascript -e "display alert \"$DISPLAY_NAME\" message \"$1\" as critical" >/dev/null 2>&1
+  exit 1
+}
+
+[ -x "$RUNTIME" ] || fatal "Missing runtime: $RUNTIME"
+[ -f "$APP_INI" ] || fatal "Missing app manifest: $APP_INI"
+
+# Profile lives next to the app if that folder is writable (Desktop, USB
+# stick, a drag-extracted copy); otherwise under ~/Library/Application Support
+# (e.g. when installed read-only into /Applications by an admin).
+if [ -w "$PARENT" ]; then
+  PROFILE="$PARENT/profile"
+else
+  PROFILE="$HOME/Library/Application Support/$PROFILE_SLOT/profile"
+fi
+
+# Filter --reset-profile out of the forwarded args (POSIX argv rewrite:
+# pop each arg from the front, push the keepers back onto the end).
+RESET=0
+n=$#
+while [ "$n" -gt 0 ]; do
+  arg=$1; shift
+  if [ "$arg" = "--reset-profile" ]; then
+    RESET=1
+  else
+    set -- "$@" "$arg"
+  fi
+  n=$((n - 1))
+done
+[ "$RESET" -eq 1 ] && rm -rf "$PROFILE"
+
+mkdir -p "$PROFILE" || fatal "Could not create profile dir: $PROFILE"
+
+exec "$RUNTIME" -app "$APP_INI" --no-remote --profile "$PROFILE" "$@"

@@ -38,27 +38,8 @@ function showError(prefix, err) {
 window.addEventListener("error", (e) => showError("Uncaught", e.error || e.message));
 window.addEventListener("unhandledrejection", (e) => showError("Unhandled rejection", e.reason));
 
-// ---------- window icon (Windows title bar) ----------------------------------
-// Gecko doesn't push WM_SETICON for chrome HTML windows — Windows would
-// otherwise fall back to the host exe's icon resource (which in dev mode is
-// the unmodified Firefox icon). Push our own icon explicitly.
-async function applyWindowIcon(iconUrl) {
-  if (Services.appinfo.OS !== "WINNT") return;  // Win-only API
-  try {
-    const winUtils = Cc["@mozilla.org/windows-ui-utils;1"]
-                       .getService(Ci.nsIWindowsUIUtils);
-    const arrayBuf = await (await fetch(iconUrl)).arrayBuffer();
-    const imgTools = Cc["@mozilla.org/image/tools;1"].getService(Ci.imgITools);
-    // FF >= ~80; older versions had decodeImage(stream, mime) instead.
-    const container = imgTools.decodeImageFromArrayBuffer(
-      arrayBuf, "image/vnd.microsoft.icon");
-    winUtils.setWindowIcon(window, container, container);
-  } catch (e) {
-    showError("setWindowIcon", e);
-  }
-}
-
-applyWindowIcon("chrome://myapp/skin/icon.ico");
+// The native menu bar, the window icon, and app-quit are owned by the XUL
+// shell window that hosts this page (see shell.xhtml / shell.js).
 
 // ---------- runtime info ----------
 function renderInfo() {
@@ -205,16 +186,14 @@ $("mod-btn").addEventListener("click", () => {
 });
 
 // ---------- quit ----------
+// The in-page button just asks the host shell window to quit. ⌘Q and the menu
+// Quit item are handled natively by the shell (shell.js); this page only needs
+// to forward its own button. eForceQuit so nothing can veto the exit.
 $("quit-btn").addEventListener("click", () => {
-  // Try the canonical chrome-app exit. If that throws (Services missing,
-  // wrong constant, etc.) the catch routes to the visible error bar.
-  // window.close() as a backup — in -app mode with a single window it also
-  // triggers app shutdown.
   try {
-    Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+    Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
   } catch (e) {
     showError("quit failed", e);
-    try { window.close(); } catch (_) { /* ignore */ }
   }
 });
 

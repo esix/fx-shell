@@ -1,5 +1,5 @@
 // Entry chrome window. Loaded by toolkit because we're in -app mode.
-pref("toolkit.defaultChromeURI", "chrome://myapp/content/main.xhtml");
+pref("toolkit.defaultChromeURI", "chrome://myapp/content/shell.xhtml");
 // Set an explicit, screen-safe initial size. Without width/height the
 // window is sized to content, which on a tall card layout can exceed
 // the screen and clip top + bottom.

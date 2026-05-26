@@ -23,6 +23,6 @@
     "companyName": "My Company",
     "iconPath": "app/chrome/skin/icon.ico",
     "appDir": "app",
-    "preferSystemFirefox": true
+    "preferSystemFirefox": false
   }
 }

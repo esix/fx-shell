@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/global.css" type="text/css"?>
+<!-- fxshell shell window.
+
+     This is a XUL <window> (default namespace = XUL), which is what makes
+     Gecko build the real macOS menu bar at the top of the screen — including
+     the standard application menu with "Quit <App>" / ⌘Q. An HTML-rooted
+     chrome window never gets one.
+
+     The window itself only carries the menu + key bindings; your actual UI is
+     a plain HTML document loaded into the privileged <iframe> below, so you
+     keep writing the app in HTML/CSS/JS and don't touch XUL. -->
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        xmlns:html="http://www.w3.org/1999/xhtml"
+        id="fxshell-window"
+        title="My App"
+        windowtype="fxshell:main"
+        width="900" height="700">
+
+  <script src="chrome://myapp/content/shell.js"/>
+
+  <keyset>
+    <key id="key_quit"  key="Q" modifiers="accel"/>
+    <key id="key_close" key="W" modifiers="accel"/>
+  </keyset>
+
+  <menubar id="main-menubar">
+    <menu id="file-menu" label="File" accesskey="F">
+      <menupopup>
+        <menuitem id="menu_close" label="Close Window" key="key_close"/>
+        <!-- The special id makes Gecko relocate this OUT of File and into the
+             macOS application menu ("My App ▸ Quit"), bound to ⌘Q. That's why
+             File keeps a Close item — otherwise it would be empty on macOS. -->
+        <menuitem id="menu_FileQuitItem" label="Quit" key="key_quit"/>
+      </menupopup>
+    </menu>
+  </menubar>
+
+  <iframe id="app-content" type="chrome" flex="1"
+          src="chrome://myapp/content/main.xhtml"/>
+</window>
