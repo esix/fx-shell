@@ -12,8 +12,10 @@ no fork, no rebuild of Gecko.
 - **Node.js 18+** and **npm**
 - **Windows 10 / 11** or **macOS 11+** (Linux is planned). Win64 + the
   universal macOS build are wired up.
-- **Optional, for `npm start`:** Firefox installed at the default location.
-  If absent, `npm start` downloads the pinned version to a cache.
+- **For `npm start`:** by default it uses the pinned Firefox version, which it
+  downloads to a cache on first run (~50 MB, once). Set
+  `fxshell.preferSystemFirefox` to `true` to use your installed Firefox instead
+  — faster, but only reliable if that's ~FF 99 (newer Firefox breaks `-app`).
 - **For `npm run build` with the auto-downloaded pinned runtime:**
   - *Windows:* [7-Zip](https://www.7-zip.org/) (`winget install 7zip.7zip`) to
     extract the installer. Without it, the build falls back to your installed
@@ -80,9 +82,10 @@ fx-shell/
 
 ## `npm start`
 
-Launches your app against either your **installed Firefox** (default —
-fastest iteration) or the **pinned, cached** Firefox runtime if no system
-copy is available. Forwards extra args to Gecko:
+Launches your app against the **pinned, cached** Firefox runtime by default
+(downloaded on first run), so dev matches what `npm run build` ships. Set
+`fxshell.preferSystemFirefox: true` to use your **installed Firefox** instead
+for a faster loop — safe only if it's ~FF 99. Forwards extra args to Gecko:
 
 ```sh
 npm start                    # plain launch

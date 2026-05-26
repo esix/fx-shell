@@ -11,9 +11,12 @@
  *   npm start -- --jsdebugger
  *
  * Runtime resolution:
- *   1. If fxshell.preferSystemFirefox (default true) and Firefox is installed,
- *      use it. Fast iteration loop.
- *   2. Otherwise download + cache the pinned version.
+ *   1. By default (fxshell.preferSystemFirefox is false) use the pinned
+ *      version, downloading + caching it on first run. This keeps dev
+ *      identical to what `npm run build` ships, and avoids newer system
+ *      Firefox versions that regress -app behaviour.
+ *   2. If fxshell.preferSystemFirefox is true and Firefox is installed,
+ *      use it instead for a faster loop (safe only on ~FF 99).
  */
 
 const path = require('path');

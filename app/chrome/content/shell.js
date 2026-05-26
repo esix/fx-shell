@@ -32,9 +32,15 @@ function quitApp() {
 // Wire the native menu. menu_FileQuitItem is relocated into the macOS
 // application menu and bound to ⌘Q; menu_close stays in File as Close Window.
 window.addEventListener("DOMContentLoaded", () => {
+  // Single source of truth for the app's display name: application.ini's
+  // Name field (= Services.appinfo.name). Drives both the window title and
+  // the Quit menu item, so the name isn't authored in two places. The
+  // title="…" in shell.xhtml is only a pre-paint placeholder we overwrite here.
+  const appName = Services.appinfo.name;
+  document.title = appName;
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener("command", fn); };
   const quitItem = document.getElementById("menu_FileQuitItem");
-  if (quitItem) quitItem.setAttribute("label", "Quit " + Services.appinfo.name);
+  if (quitItem) quitItem.setAttribute("label", "Quit " + appName);
   on("menu_FileQuitItem", quitApp);
   on("key_quit", quitApp);
   on("menu_close", () => window.close());
